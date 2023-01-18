@@ -7,15 +7,15 @@ import "@nomiclabs/hardhat-ethers";
 
 
 
-const ALCHEMY_mumbai_API_KEY_URL = process.env.ALCHEMY_mumbai_API_KEY_URL;
+const ALCHEMY_goerli_API_KEY_URL = process.env.ALCHEMY_goerli_API_KEY_URL;
 //contract address key
 const ACCOUNT_PRIVATE_KEY = process.env.ACCOUNT_PRIVATE_KEY;
 
 module.exports = {
   solidity: "0.8.17",
   networks: {
-    mumbai: {
-      url: ALCHEMY_mumbai_API_KEY_URL,
+    goerli: {
+      url: ALCHEMY_goerli_API_KEY_URL,
       accounts: [ACCOUNT_PRIVATE_KEY],
     }
   },
