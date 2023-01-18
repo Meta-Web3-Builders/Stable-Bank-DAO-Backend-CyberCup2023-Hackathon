@@ -8,7 +8,7 @@ import "./IDAOToken.sol";
 contract DAO{
    //////////STATE VARIABLES////////
    address public Admin;
-    address USDC;
+    address DUSDC;
    address daotoken;
    address crowdFundFactoryAddr;
    uint256 public DAOMemberCount;
@@ -72,10 +72,10 @@ contract DAO{
 
 
     ///////////CONSTRUCTOR/////////////////
-    constructor(address _DAOtokenAddress, address _USDC, address _crowdFundFactoryaddr, address _nft) {
+    constructor(address _DAOtokenAddress, address _DUSDC, address _crowdFundFactoryaddr, address _nft) {
         daotoken = _DAOtokenAddress;
         Admin = msg.sender;
-        USDC = _USDC;
+        DUSDC = _DUSDC;
         crowdFundFactoryAddr = _crowdFundFactoryaddr;
         StableBankDaoNFT = _nft;
         //crowdFundFactory(crowdFundFactoryAddr).createDaoToken(1);
@@ -151,7 +151,7 @@ contract DAO{
         
         
         //require(msg.value == tokenAmount, "No sufficient funds");
-        IUSDC(USDC).transferFrom(msg.sender, address(this), tokenAmount * 1e18);
+        IUSDC(DUSDC).transferFrom(msg.sender, address(this), tokenAmount * 1e18);
         IStableBank(daotoken).transferFrom(address(this), msg.sender, tokenAmount * 1e18);
     }
 
@@ -166,7 +166,7 @@ contract DAO{
         }
         clickJoin[msg.sender] = true;
 
-        IUSDC(USDC).transferFrom(msg.sender, address(this), 10 * 1e18);
+        IUSDC(DUSDC).transferFrom(msg.sender, address(this), 10 * 1e18);
         IStableBank(daotoken).mint(msg.sender, 10 * 1e18);
 
         DMI.name = _name;
@@ -238,7 +238,7 @@ contract DAO{
         clickJoin[_memberAddress] = false;
         rejectedMember.push(_memberAddress);
 
-        IUSDC(USDC).transfer(_memberAddress, 10 * 1e18);
+        IUSDC(DUSDC).transfer(_memberAddress, 10 * 1e18);
         IStableBank(daotoken).burnFrom(_memberAddress, 10 * 1e18);
     }
 
@@ -368,7 +368,7 @@ contract DAO{
         Pis.created = true;
         Pis.deadline = _deadline + block.timestamp;
     
-         deployCrowdFund(crowdFundFactoryAddr, USDC, beneficiary , prosalID, _deadline, StableBankDaoNFT, amountProposed, name, description, cat);
+         deployCrowdFund(crowdFundFactoryAddr, DUSDC, beneficiary , prosalID, _deadline, StableBankDaoNFT, amountProposed, name, description, cat);
          ( address _USDC, address manager, address crowdFundAddr, address owner) = returnClonedAddress(crowdFundFactoryAddr, prosalID);
 
          emit newCrowdfundDetails(_USDC, manager, crowdFundAddr, owner);
@@ -457,7 +457,7 @@ contract DAO{
     }
 
     function usdcBalance() external view returns (uint256){
-        return IUSDC(USDC).balanceOf(address(this));
+        return IUSDC(DUSDC).balanceOf(address(this));
     }
 
 
