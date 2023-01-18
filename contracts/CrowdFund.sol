@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "./StableBankDaoNFT.sol";
-interface IUSDC{
+interface IDUSDC{
     function transferFrom(address _from,address _to,uint256 _amount) external returns(bool);
     function transfer(address _to,uint256 _amount) external returns(bool);
     function balanceOf(address account) external view returns (uint256);
@@ -22,7 +22,7 @@ contract CrowdFund {
     uint public donorsCount;
     uint public proposalid;
     address public crowdfundAddr;
-    address public USDC;
+    address public DUSDC;
     uint public amountRaised;
     bool public targetReached;
     bool public crowdfundCreated;
@@ -60,11 +60,11 @@ contract CrowdFund {
     event Donate(address indexed donor, uint indexed amount, uint indexed time);
     event withdrawFund(address indexed _benef, uint indexed amount);
 
-    constructor(address _USDC, address _ownersAddress,uint _salt, uint _time, address _nft, uint _amountProposed, string memory _topic, bytes  memory _description, Category _cat) {
+    constructor(address _DUSDC, address _ownersAddress,uint _salt, uint _time, address _nft, uint _amountProposed, string memory _topic, bytes  memory _description, Category _cat) {
         crowdFundOwner = _ownersAddress;
         manager = msg.sender;
         crowdfundAddr = address(this);
-        USDC = _USDC;
+        DUSDC = _DUSDC;
         time = _time;
         proposalid = _salt;
         duration = (_time * 1 days) + block.timestamp;
@@ -89,9 +89,9 @@ contract CrowdFund {
     //function to withdrawfund
     function withdraw() external onlyOwner {
         require(msg.sender != address(0), "invalid address");
-        uint amount = IUSDC(USDC).balanceOf(address(this));
+        uint amount = IDUSDC(DUSDC).balanceOf(address(this));
         require(amount >= targetAmount, "CrowdFunding is not complete yet!");
-        IUSDC(USDC).transfer(beneficiary, amount);
+        IDUSDC(DUSDC).transfer(beneficiary, amount);
 
         donationWithdraw[beneficiary] = true;
         emit withdrawFund(beneficiary, amount);
@@ -115,10 +115,10 @@ contract CrowdFund {
         require(amount > 0, "Amount should be greater than zero!");
 
         if((amountRaised += amount) >= targetAmount){
-            assert(IUSDC(USDC).transferFrom(msg.sender, address(this), amount));
+            assert(IDUSDC(DUSDC).transferFrom(msg.sender, address(this), amount));
             targetReached = true;
         } else{
-            assert(IUSDC(USDC).transferFrom(msg.sender, address(this), amount));
+            assert(IDUSDC(DUSDC).transferFrom(msg.sender, address(this), amount));
 
         }
 
@@ -148,7 +148,7 @@ contract CrowdFund {
         require(block.timestamp > duration, "TIme for donation still on");
         require(msg.value > 0, "ether for transaction cost");
         for(uint i = 0; i < donorListInfo.length; i++){
-            IUSDC(USDC).transfer(donorListInfo[i].addr, donorListInfo[i].amount);
+            IDUSDC(DUSDC).transfer(donorListInfo[i].addr, donorListInfo[i].amount);
         }
     }
 
@@ -192,7 +192,7 @@ contract CrowdFund {
     }
 
     function getUSDCBalance() external view returns(uint){
-        return IUSDC(USDC).balanceOf(address(this));
+        return IDUSDC(DUSDC).balanceOf(address(this));
     }
 
     function getDonorLenght() external view returns(uint){
