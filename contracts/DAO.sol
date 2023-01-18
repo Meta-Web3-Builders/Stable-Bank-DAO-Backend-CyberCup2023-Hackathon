@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.4;
 
 import "./CrowdFundFactory.sol";
 import "./IDAOToken.sol";
@@ -10,24 +10,26 @@ contract DAO{
    address public Admin;
     address DUSDC;
    address daotoken;
-   address crowdFundFactoryAddr;
-   uint256 public DAOMemberCount;
-   address StableBankDaoNFT;
-   uint256 proposalID = 1;
-   uint256 public proposalCount;
-   uint64 memberID = 1;
-   uint256 minimumrequiredDAOTokenAmount;
-   uint256 maximumrequiredDAOTokenAmount;
+   crowdFundFactory crowdFundFactoryAddr;
+   //uint256 public Quorum = DAOMemberCount - ((DAOMemberCount * 30)/ 100);
+   uint256 DAOMemberCount;
+   address stabeleBankNFT;
 
+//    enum ProposalStatus{
+//     pending,
+//     approved,
+//     unapproved
+//    }
 
 
    struct DAOMemberInfo{
     string name;
     address memberAddress;
     uint64 memberID;
-    bool approved;
+    bool joined;
     uint timeJoined;
    }
+
 
    struct Proposals{
     uint256 proposalID;
@@ -37,9 +39,8 @@ contract DAO{
     uint256 amountProposed;
     uint256 votes;
     bool approved;
-    bool created;
-    CrowdFund.Category category;
     bool cancelled;
+    bool created;
     uint256 totalVoteCount;
     uint cancellationTime;
     uint approvedTime;
@@ -49,11 +50,19 @@ contract DAO{
 
     Proposals[] allProposals; //array of all proposals
     Proposals[] approvedProposals; //array of all approvedProposals
-    address[] approveMembers;
-    address[] rejectedMember;
-    address[] pendingApproveMembers;
+
+
+    uint256 proposalID = 1;
+    uint256 proposalCount;
+    uint64 memberID = 1;
+    uint256 minimumrequiredDAOTokenAmount;
+    uint256 maximumrequiredDAOTokenAmount;
+    uint256 totalEtherDeposit;
+    uint256 totalDaoTokenBal;
+
+    address[] EligibleMembers;
     DAOMemberInfo[] members;
-   
+    
 
     mapping(uint256 => Proposals) _proposals;
     mapping(address => mapping(uint256 => bool)) voted;
@@ -66,18 +75,18 @@ contract DAO{
     event ProposalCancelled(uint256 indexed _proposalID, uint256 indexed cancellationTime);
     event ProposalApproved(uint256 indexed _proposalID, uint256 indexed ApproveTime);
     event ProposalVoted(address indexed voter, uint256 indexed proposalID, uint256 indexed voteP);
-    event newCrowdfundDetails(address _USDC, address indexed manager, address indexed crowdFundAddr, address indexed owner);
     event AdminUpdated(address oldAdmin, address newAdmin);
     event EtherDeposited(address depositor, uint256 amountDeposited);
+    event newCrowdfundDetails(address _USDC, address indexed manager, address indexed crowdFundAddr, address indexed owner);
 
 
     ///////////CONSTRUCTOR/////////////////
-    constructor(address _DAOtokenAddress, address _DUSDC, address _crowdFundFactoryaddr, address _nft) {
+    constructor(address _DAOtokenAddress, address _DUSDC, crowdFundFactory _crowdFundFactoryaddr, address _nft) {
         daotoken = _DAOtokenAddress;
         Admin = msg.sender;
         DUSDC = _DUSDC;
         crowdFundFactoryAddr = _crowdFundFactoryaddr;
-        StableBankDaoNFT = _nft;
+        stabeleBankNFT = _nft;
         //crowdFundFactory(crowdFundFactoryAddr).createDaoToken(1);
     }
 
@@ -111,7 +120,7 @@ contract DAO{
     // required to join the DAO
     function minandmaxDAOtokenrequired(uint256 _minimumrequiredDAOTokenAmount, uint256 _maximumrequiredDAOTokenAmount) external{
         if(msg.sender != Admin){
-            revert NotAdmin("Not Admin");
+            revert NotAdmin("Only the Admin is eligible to call this function");
         }
         minimumrequiredDAOTokenAmount = _minimumrequiredDAOTokenAmount;
         maximumrequiredDAOTokenAmount = _maximumrequiredDAOTokenAmount;
@@ -121,7 +130,7 @@ contract DAO{
     /// @dev function to change the Admin 
     function changeAdmin(address newAdmin) external{
         if(msg.sender != Admin){
-            revert NotAdmin("Not admin");
+            revert NotAdmin("Only the Admin is eligible to call this function");
         }
          if (newAdmin == address(0)) {
             revert ZeroAddress("zero address is not allowed");
@@ -136,14 +145,14 @@ contract DAO{
     function purchaseDAOToken(uint tokenAmount) external payable{
         //check to user balance
         
-        if(IStableBank(daotoken).balanceOf(address(this)) <= 0){
-            revert ContractNotFunded("Contract:No more DAO tokens");
+        if(IStableBankToken(daotoken).balanceOf(address(this)) <= 0){
+            revert ContractNotFunded("No more DAO tokens to purchase, Contact Admin");
         }
-        if(IStableBank(daotoken).balanceOf(msg.sender) > maximumrequiredDAOTokenAmount){
-            revert TooMuch("Enough Dao Token");
+        if(IStableBankToken(daotoken).balanceOf(msg.sender) > maximumrequiredDAOTokenAmount){
+            revert TooMuch("You have exceeded the maximum amount of DAO tokens required");
         }
-        if((IStableBank(daotoken).balanceOf(msg.sender) + tokenAmount) > maximumrequiredDAOTokenAmount ){
-            revert TooMuch("Enough Dao Token");
+        if((IStableBankToken(daotoken).balanceOf(msg.sender) + tokenAmount) > maximumrequiredDAOTokenAmount ){
+            revert TooMuch("You have exceeded the maximum amount of DAO tokens required");
         }
        
         //calculate equivalent of ether to the DAOToken
@@ -152,105 +161,74 @@ contract DAO{
         
         //require(msg.value == tokenAmount, "No sufficient funds");
         IDUSDC(DUSDC).transferFrom(msg.sender, address(this), tokenAmount * 1e18);
-        IStableBank(daotoken).transferFrom(address(this), msg.sender, tokenAmount * 1e18);
+        IStableBankToken(daotoken).transferFrom(address(this), msg.sender, tokenAmount * 1e18);
+        totalEtherDeposit += msg.value;
     }
-
 
     /// @dev function for an individual to join the Stable Bank DAO 
     function joinDAO(string memory _name) external{
         DAOMemberInfo storage DMI = member[msg.sender];
         require(clickJoin[msg.sender] == false, "already joined");
-         
-        if(IStableBank(daotoken).balanceOf(address(this)) <= 0){
-            revert ContractNotFunded("Contract:No more DAO tokens");
+        if(DMI.joined == true){
+            revert AlreadyJoined("You can't join twice");
+        }
+                
+        if(IStableBankToken(daotoken).balanceOf(address(this)) <= 0){
+            revert ContractNotFunded("No more DAO tokens to purchase, Contact Admin");
         }
         clickJoin[msg.sender] = true;
 
         IDUSDC(DUSDC).transferFrom(msg.sender, address(this), 10 * 1e18);
-        IStableBank(daotoken).mint(msg.sender, 10 * 1e18);
+        IStableBankToken(daotoken).mint(msg.sender, 10 * 1e18);
 
         DMI.name = _name;
         DMI.memberAddress = msg.sender;
         DMI.memberID = memberID;
         DMI.timeJoined = block.timestamp;
+        //EligibleMembers.push(msg.sender);
         memberID++;
+       // DAOMemberCount = DAOMemberCount + 1;
         members.push(DMI);
-        pendingApproveMembers.push(msg.sender);
 
         emit Joined(msg.sender, block.timestamp);
     }
 
 
     function approveApplicant(address _memberAddress) external {
-        
+        DAOMemberInfo memory DMI = member[msg.sender];
         if (msg.sender != Admin) {
-            revert NotAdmin("Not Admin");
+            revert NotAdmin("only admin required");
         }
         require(member[_memberAddress].timeJoined !=0, "Applicant has not apply");
-
-        //set the approve status in the array of struct Daomemeberinfo
-        //copy the members struct to memory so as to save gas
-        DAOMemberInfo[] memory _internalMember = members;
-        uint i = 0;
-            while (_internalMember[i].memberAddress != _memberAddress) {
-                i++;
-            }
-            uint index = i;
-        members[index].approved = true;
-
-        //remove the address from the pending approve address array
-        while (index<pendingApproveMembers.length-1) {
-            pendingApproveMembers[index] = pendingApproveMembers[index+1];
-            index++;
-        }
-        pendingApproveMembers.pop();
         
-        member[_memberAddress].approved = true;
+        member[_memberAddress].joined = true;
+        DMI.joined = true; //added
         DAOMemberCount = DAOMemberCount + 1;
-        approveMembers.push(_memberAddress);
+        EligibleMembers.push(msg.sender);
 
     }
 
     function rejectApplicant(address _memberAddress) external {
         if (msg.sender != Admin) {
-            revert NotAdmin("Not Admin");
+            revert NotAdmin("only admin required");
         }
         require(member[_memberAddress].timeJoined !=0, "Applicant has not apply");
-
-        //set the approve status in the array of struct Daomemeberinfo
-        //copy the members struct to memory so as to save gas
-        DAOMemberInfo[] memory _internalMember = members;
-        uint i = 0;
-        while (_internalMember[i].memberAddress != _memberAddress) {
-            i++;
-        }
-        uint index = i;
-        members[index].approved = false;
-
-        //remove the address from the pending approve address array
-        while (index<pendingApproveMembers.length-1) {
-            pendingApproveMembers[index] = pendingApproveMembers[index+1];
-            index++;
-        }
-        pendingApproveMembers.pop();
-
-        member[_memberAddress].approved = false;
+        member[_memberAddress].joined = false;
         clickJoin[_memberAddress] = false;
-        rejectedMember.push(_memberAddress);
 
         IDUSDC(DUSDC).transfer(_memberAddress, 10 * 1e18);
-        IStableBank(daotoken).burnFrom(_memberAddress, 10 * 1e18);
+        IStableBankToken(daotoken).burnFrom(_memberAddress, 10 * 1e18);
     }
 
    /// @dev this function is called to create a proposal for a funding project
    /// @notice Only DAO members are eligible to create a proposal for a funding project
    /// @param _topic: the caller inputs the _topic, _description, and amount of funding for the project
    
-    function createProposal(string memory _topic, string memory _description, uint256 amount,uint _deadline, CrowdFund.Category cat) external {
+    function createProposal(string memory _topic, string memory _description, uint256 amount,uint _deadline) external {
           DAOMemberInfo memory DMI = member[msg.sender];
           uint time = _deadline + block.timestamp;
-          if(DMI.approved == false){
-            revert NotEligible("Not DAO Member");
+          if(DMI.joined == false){
+            revert NotEligible("You are not a member of the DAO");
           }
       
           if (time < block.timestamp) {
@@ -264,7 +242,7 @@ contract DAO{
           P.deadline = _deadline;
           P.amountProposed = amount;
           P.proposalInitiator = msg.sender;
-          P.category = cat;
+          P.proposalID = proposalID + 1;
           proposalCount = proposalCount + 1;
           allProposals.push(P);
 
@@ -276,7 +254,7 @@ contract DAO{
 
     function cancelProposal(uint256 _proposalID) external {
         if (msg.sender != Admin) {
-            revert NotAdmin("Not Admin");
+            revert NotAdmin("only admin required");
         }
         if (_proposals[_proposalID].cancelled == true) {
             revert proposalAlreadyCancelled();
@@ -299,24 +277,24 @@ contract DAO{
         } else if(_proposals[_proposalID].approved == true){
             return  "approved";
         }else{
-            return "pending review.";
+            return "pending review, check back later or contact admin";
         }
     }
 
     function approveProposal(uint256 _proposalID) external{
 
         if (msg.sender != Admin) {
-            revert NotAdmin("Not Admin");
+            revert NotAdmin("only admin required");
         }
 
         if (_proposals[_proposalID].cancelled == true) {
             revert proposalAlreadyCancelled();
         }
         if (_proposals[_proposalID].votes > 0) {
-            revert votingAlreadyStarted("Active proposal");
+            revert votingAlreadyStarted("Can't approve an active proposal");
         }
         if(DAOMemberCount < 4){
-            revert n0tEnoughDaoMembers("Not enough Dao members");
+            revert n0tEnoughDaoMembers("Dao members are not enough");
         }
 
         _proposals[_proposalID].approved = true;
@@ -326,63 +304,58 @@ contract DAO{
 
     }
 
+
     /// @dev function to vote project proposal given the proposal ID
-    function voteProposal(uint prosalID) external {
-         DAOMemberInfo memory DMI = member[msg.sender];
-          if(DMI.approved == false){
-            revert NotEligible("Not Dao member");
+    function voteProposal(uint prosalID) external{
+        DAOMemberInfo memory DMI = member[msg.sender];
+          if(DMI.joined == false){
+            revert NotEligible("You are not a member of the DAO");
           }
           
           if(voted[msg.sender][prosalID] == true){
-            revert AlreadyVoted("Already Voted");
+            revert AlreadyVoted("You can't vote for the same propsal twice");
           }
          
          Proposals storage Pis = _proposals[prosalID];
+         if(_proposals[prosalID].approved != true){
+            revert ProposalNotApproved("Proposal has not being approved");
+         }
 
-        if (IStableBank(daotoken).balanceOf(msg.sender) < 1e18) {
+        if (IStableBankToken(daotoken).balanceOf(msg.sender) < 1e18) {
             revert insufficientToken();
         }
 
-        if(DAOMemberCount < 4){
-            revert n0tEnoughDaoMembers("Not enough Dao Member");
+        if(DAOMemberCount < 3){
+            revert n0tEnoughDaoMembers("Dao members are not enough");
         }
-
-        if(Pis.approved != true){
-            revert  ProposalNotApproved("Noty yet approved proposal ");
-        }
-
         if(Pis.created == true){
             revert crowdFundCreated("Quorum reached, Thank you");
         }
-
-        address beneficiary = _proposals[prosalID].proposalInitiator;
-        uint _deadline = _proposals[prosalID].deadline;
-        uint amountProposed  = _proposals[prosalID].amountProposed;
-        string memory name = _proposals[prosalID].topic;
-        bytes  memory description = _proposals[prosalID].description;
-        CrowdFund.Category cat = _proposals[prosalID].category;
-         
+        
         Pis.votes =  Pis.votes + 1;
 
-        if (Pis.votes >= (DAOMemberCount - ((DAOMemberCount * 30)/ 100))) {
+        if (Pis.votes >= DAOMemberCount - ((DAOMemberCount * 30)/ 100)) {
+        Pis.approved = true;
+        Pis.deadline;
         Pis.created = true;
-        Pis.deadline = _deadline + block.timestamp;
-    
-         deployCrowdFund(crowdFundFactoryAddr, DUSDC, beneficiary , prosalID, _deadline, StableBankDaoNFT, amountProposed, name, description, cat);
-         ( address _USDC, address manager, address crowdFundAddr, address owner) = returnClonedAddress(crowdFundFactoryAddr, prosalID);
+        
+        deployCrowdFund(DUSDC, Pis.proposalInitiator, prosalID, Pis.deadline, stabeleBankNFT, Pis.description);
+        (address _DUSDC, address deployer, address crowdFundAddr, address owner ) = returnClonedAddress(prosalID);
 
-         emit newCrowdfundDetails(_USDC, manager, crowdFundAddr, owner);
+        emit newCrowdfundDetails(_DUSDC, deployer, crowdFundAddr, owner);
         }
 
-        IStableBank(daotoken).burnFrom(msg.sender, 1e18);
+        IStableBankToken(daotoken).burnFrom(msg.sender, 1e18);
 
         voted[msg.sender][prosalID] = true;
         Pis.voters.push(msg.sender);
+
      
         Pis.totalVoteCount = Pis.totalVoteCount + 1;
 
         emit ProposalVoted(msg.sender, prosalID, 1);
          
+
     }
      
      /// @notice function to deposit ether into the DAO
@@ -390,24 +363,24 @@ contract DAO{
         if( msg.value == 0 ){
             revert ZeroEther("Zero ether not allowed");
         }
+        totalEtherDeposit += msg.value;
 
         emit EtherDeposited(msg.sender, msg.value);
     }
 
-    function transferLockedToken(address tokenAddress) public {
-        if (msg.sender != Admin) {
-            revert NotAdmin("only admin required");
-        }
-        uint amount = IDUSDC(tokenAddress).balanceOf(address(this));
 
-        IDUSDC(tokenAddress).transfer(msg.sender, amount);
+    /// @notice function to get all created project proposal count
+    function getAllProposalCount() external view returns(uint256){
+        return  proposalCount;
     }
     
+
     /// @dev function to get the vote count of a particular proposal
     function voteCount(uint ID) external view returns(uint256){
         Proposals memory Pis = _proposals[ID];
         return Pis.totalVoteCount;
     }
+
 
     /// @notice function to get all created proposals
     function getAllProposals() external view returns( Proposals[] memory Pl ){
@@ -440,9 +413,9 @@ contract DAO{
     }
 
 
-    /// @dev function to return all members that need to be aprrove/reject
-    function allPendingMember() external view returns(address[] memory){
-        return pendingApproveMembers;
+    /// @dev function to get DAO Member count
+    function getDAOMemberCount() external view returns(uint256){
+        return DAOMemberCount;
     }
 
 
@@ -460,27 +433,17 @@ contract DAO{
         return IDUSDC(DUSDC).balanceOf(address(this));
     }
 
-
-
-    function changeCrowdfundFactory(address _crowdFundFactory) external {
-        if(msg.sender != Admin){
-            revert NotAdmin("Only the Admin is eligible to call this function");
-        }
-
-        crowdFundFactoryAddr = _crowdFundFactory;    
-    }
-
     //Helper functions
-    function deployCrowdFund(address _crowdFundFactoryAddr, address _USDC, address _ownersAddress, uint256 _salt, uint256 deadline, address _nft, uint _amountProposed, string memory _topic, bytes memory _description, CrowdFund.Category cat) internal returns(address crowdFundAddr, address manager ) {
-        
-      return crowdFundFactory(_crowdFundFactoryAddr).createCrowdfund(_USDC, _ownersAddress, _salt, deadline, _nft, _amountProposed, _topic, _description, cat);
-
-    }
-
-    function returnClonedAddress(address _crowdFundFactoryAddr, uint index) internal view returns(address _USDC, address deployer, address crowdFundAddr, address owner ) {
-
-        return crowdFundFactory(_crowdFundFactoryAddr).getCrowdFund(index - 1);
-    }
+    function deployCrowdFund(address _DUSDC, address _ownersAddress, uint256 _salt, uint256 deadline, address _nft, bytes memory _description) internal returns(address crowdFundAddr, address manager ) {
+    
+        return crowdFundFactory(crowdFundFactoryAddr).createCrowdfund(_DUSDC, _ownersAddress, _salt, deadline, _nft, _description);
+    
+        }
+    
+        function returnClonedAddress(uint index) internal view returns(address _DUSDC, address deployer, address crowdFundAddr, address owner ) {
+    
+            return crowdFundFactory(crowdFundFactoryAddr).getCrowdFund(index - 1);
+        }
 
     receive() external payable {}
 

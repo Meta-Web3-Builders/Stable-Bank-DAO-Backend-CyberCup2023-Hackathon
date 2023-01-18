@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.4;
 
 import "./StableBankDaoNFT.sol";
 interface IDUSDC{
@@ -13,22 +13,22 @@ contract CrowdFund {
     /************State Variables***************/
     address public crowdFundOwner;
     address public manager;
-    address public stabeleBankNFTAddr;
+    address stabeleBankNFTAddr;
     string public name;
-    string public Description;
     uint public targetAmount;
-    address beneficiary;
+    address public beneficiary;
     Category public category;
-    uint public donorsCount;
-    uint public proposalid;
+    uint donorsCount;
     address public crowdfundAddr;
     address public DUSDC;
     uint public amountRaised;
     bool public targetReached;
-    bool public crowdfundCreated;
+    bool  crowdfundCreated;
     uint public time;
     uint public duration;
-    address[] public allDonators;
+    string public Description;
+    address[] allDonators;
+
 
     enum Category{
         Tech,
@@ -54,27 +54,20 @@ contract CrowdFund {
     mapping(address => bool) donationWithdraw;
     mapping(address => bool) donated;
 
-    DonatedInfo[] public donorListInfo;
+    DonatedInfo[] public donorList;
 
-   // event CreateCrowdFund(address indexed _benef, uint indexed _targ, string indexed name, Category _cat);
+    event CreateCrowdFund(address indexed _benef, uint indexed _targ, string indexed name, Category _cat);
     event Donate(address indexed donor, uint indexed amount, uint indexed time);
     event withdrawFund(address indexed _benef, uint indexed amount);
 
-    constructor(address _DUSDC, address _ownersAddress,uint _salt, uint _time, address _nft, uint _amountProposed, string memory _topic, bytes  memory _description, Category _cat) {
+    constructor(address _DUSDC, address _ownersAddress, uint _time, address _nft, bytes memory _description) {
         crowdFundOwner = _ownersAddress;
         manager = msg.sender;
         crowdfundAddr = address(this);
         DUSDC = _DUSDC;
         time = _time;
-        proposalid = _salt;
-        duration = (_time * 1 days) + block.timestamp;
         stabeleBankNFTAddr = _nft;
-        targetAmount = _amountProposed;
-        name = _topic;
-        targetAmount = targetAmount * 1e18;
         Description = string(abi.encodePacked(bytes(_description)));
-        category = _cat;
-        crowdfundCreated = true;
     }
 
     modifier onlyOwner {
@@ -84,6 +77,19 @@ contract CrowdFund {
     modifier onlyManager{
         require(manager == msg.sender, "you are not permitted");
         _;
+    }
+
+    //function to create crowdfund
+    function createCrowdFund(string calldata _name, uint _target, address _beneficiary, Category _cat) external onlyOwner {
+        require(_beneficiary != address(0), "Fund raising cannot be done for address zero");
+        name = _name;
+        targetAmount = _target * 1e18;
+        beneficiary = _beneficiary;
+        category = _cat;
+        crowdfundCreated = true;
+        duration = (time * 1 days) + block.timestamp;
+
+        emit CreateCrowdFund(_beneficiary, _target, _name, _cat);
     }
 
     //function to withdrawfund
@@ -130,7 +136,7 @@ contract CrowdFund {
          _info.amount += _amount;
         _info.time = block.timestamp;
         donorsCount++;
-        donorListInfo.push(_info);
+        donorList.push(_info);
         allDonators.push(msg.sender);
 
         }
@@ -147,8 +153,8 @@ contract CrowdFund {
         }
         require(block.timestamp > duration, "TIme for donation still on");
         require(msg.value > 0, "ether for transaction cost");
-        for(uint i = 0; i < donorListInfo.length; i++){
-            IDUSDC(DUSDC).transfer(donorListInfo[i].addr, donorListInfo[i].amount);
+        for(uint i = 0; i < donorList.length; i++){
+            IDUSDC(DUSDC).transfer(donorList[i].addr, donorList[i].amount);
         }
     }
 
@@ -158,8 +164,8 @@ contract CrowdFund {
         }
         require(block.timestamp > duration, "TIme for donation still on");
         require(msg.value > 0, "ether for transaction cost");
-        for(uint i = 0; i < donorListInfo.length; i++){
-            StableBankDaoNft(stabeleBankNFTAddr).safeMint(donorListInfo[i].addr);
+        for(uint i = 0; i < donorList.length; i++){
+            StableBankDaoNft(stabeleBankNFTAddr).safeMint(donorList[i].addr);
         }
 
     }
@@ -169,14 +175,14 @@ contract CrowdFund {
         }
         require(block.timestamp > duration, "TIme for donation still on");
         require(msg.value > 0, "ether for transaction cost");
-        for(uint i = 0; i < donorListInfo.length; i++){
+        for(uint i = 0; i < donorList.length; i++){
             StableBankDaoNft(stabeleBankNFTAddr).safeMint(crowdFundOwner);
         }
 
     }
 
-    function getAllDonorInfo() external view returns(DonatedInfo[] memory) {
-        return donorListInfo;
+    function getAllDonor() external view returns(DonatedInfo[] memory) {
+        return donorList;
     }
 
     function allDonorsAddress() external view returns(address[] memory){
@@ -196,7 +202,7 @@ contract CrowdFund {
     }
 
     function getDonorLenght() external view returns(uint){
-        return donorListInfo.length;
+        return donorList.length;
     }
 
     function getTimeLeft() external view returns(uint){

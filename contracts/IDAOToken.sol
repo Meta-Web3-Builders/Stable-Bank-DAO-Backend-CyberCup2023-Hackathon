@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
-interface IStableBank {
+interface IStableBankToken {
     /**
      * @dev Emitted when `value` tokens are moved from one account (`from`) to
      * another (`to`).
