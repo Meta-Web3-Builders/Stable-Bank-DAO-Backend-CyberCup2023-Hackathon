@@ -40,6 +40,7 @@ contract DAO{
     uint256 votes;
     bool approved;
     bool cancelled;
+    bool created;
     uint256 totalVoteCount;
     uint cancellationTime;
     uint approvedTime;
@@ -76,6 +77,7 @@ contract DAO{
     event ProposalVoted(address indexed voter, uint256 indexed proposalID, uint256 indexed voteP);
     event AdminUpdated(address oldAdmin, address newAdmin);
     event EtherDeposited(address depositor, uint256 amountDeposited);
+    event newCrowdfundDetails(address _USDC, address indexed manager, address indexed crowdFundAddr, address indexed owner);
 
 
     ///////////CONSTRUCTOR/////////////////
@@ -108,6 +110,7 @@ contract DAO{
     error invalidTime(string);
     error votingAlreadyStarted(string);
     error n0tEnoughDaoMembers(string);
+    error crowdFundCreated(string);
 
 
 
@@ -161,7 +164,6 @@ contract DAO{
         IStableBankToken(daotoken).transferFrom(address(this), msg.sender, tokenAmount * 1e18);
         totalEtherDeposit += msg.value;
     }
-
 
     /// @dev function for an individual to join the Stable Bank DAO 
     function joinDAO(string memory _name) external{
@@ -326,21 +328,25 @@ contract DAO{
         if(DAOMemberCount < 3){
             revert n0tEnoughDaoMembers("Dao members are not enough");
         }
+        if(Pis.created == true){
+            revert crowdFundCreated("Quorum reached, Thank you");
+        }
         
         Pis.votes =  Pis.votes + 1;
 
         if (Pis.votes >= DAOMemberCount - ((DAOMemberCount * 30)/ 100)) {
         Pis.approved = true;
         Pis.deadline;
-    
-        crowdFundFactory(crowdFundFactoryAddr).createCrowdfund(DUSDC, Pis.proposalInitiator, prosalID, Pis.deadline, stabeleBankNFT);
-        crowdFundFactory(crowdFundFactoryAddr).getCrowdFund(prosalID);
+        Pis.created = true;
+        
+        deployCrowdFund(DUSDC, Pis.proposalInitiator, prosalID, Pis.deadline, stabeleBankNFT, Pis.description);
+        (address _DUSDC, address deployer, address crowdFundAddr, address owner ) = returnClonedAddress(prosalID);
+
+        emit newCrowdfundDetails(_DUSDC, deployer, crowdFundAddr, owner);
         }
 
         IStableBankToken(daotoken).burnFrom(msg.sender, 1e18);
 
-        
-        _proposals[prosalID].votes = _proposals[prosalID].votes + 1;
         voted[msg.sender][prosalID] = true;
         Pis.voters.push(msg.sender);
 
@@ -426,6 +432,18 @@ contract DAO{
     function usdcBalance() external view returns (uint256){
         return IDUSDC(DUSDC).balanceOf(address(this));
     }
+
+    //Helper functions
+    function deployCrowdFund(address _DUSDC, address _ownersAddress, uint256 _salt, uint256 deadline, address _nft, bytes memory _description) internal returns(address crowdFundAddr, address manager ) {
+    
+        return crowdFundFactory(crowdFundFactoryAddr).createCrowdfund(_DUSDC, _ownersAddress, _salt, deadline, _nft, _description);
+    
+        }
+    
+        function returnClonedAddress(uint index) internal view returns(address _DUSDC, address deployer, address crowdFundAddr, address owner ) {
+    
+            return crowdFundFactory(crowdFundFactoryAddr).getCrowdFund(index - 1);
+        }
 
     receive() external payable {}
 

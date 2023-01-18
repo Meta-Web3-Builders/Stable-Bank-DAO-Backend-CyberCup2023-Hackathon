@@ -16,16 +16,19 @@ contract CrowdFund {
     address stabeleBankNFTAddr;
     string public name;
     uint public targetAmount;
-    address beneficiary;
-    Category category;
+    address public beneficiary;
+    Category public category;
     uint donorsCount;
     address public crowdfundAddr;
     address public DUSDC;
     uint public amountRaised;
     bool public targetReached;
-    bool crowdfundCreated;
-    uint time;
-    uint duration;
+    bool  crowdfundCreated;
+    uint public time;
+    uint public duration;
+    string public Description;
+    address[] allDonators;
+
 
     enum Category{
         Tech,
@@ -57,13 +60,14 @@ contract CrowdFund {
     event Donate(address indexed donor, uint indexed amount, uint indexed time);
     event withdrawFund(address indexed _benef, uint indexed amount);
 
-    constructor(address _DUSDC, address _ownersAddress, uint _time, address _nft) {
+    constructor(address _DUSDC, address _ownersAddress, uint _time, address _nft, bytes memory _description) {
         crowdFundOwner = _ownersAddress;
         manager = msg.sender;
         crowdfundAddr = address(this);
         DUSDC = _DUSDC;
         time = _time;
         stabeleBankNFTAddr = _nft;
+        Description = string(abi.encodePacked(bytes(_description)));
     }
 
     modifier onlyOwner {
@@ -133,6 +137,7 @@ contract CrowdFund {
         _info.time = block.timestamp;
         donorsCount++;
         donorList.push(_info);
+        allDonators.push(msg.sender);
 
         }
           
@@ -178,6 +183,10 @@ contract CrowdFund {
 
     function getAllDonor() external view returns(DonatedInfo[] memory) {
         return donorList;
+    }
+
+    function allDonorsAddress() external view returns(address[] memory){
+        return allDonators;
     }
 
     function amountDonated(address _donor) external view returns(uint) {
