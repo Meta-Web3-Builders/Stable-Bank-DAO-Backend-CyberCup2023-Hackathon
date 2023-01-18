@@ -619,7 +619,7 @@ abstract contract ERC20Burnable is Context, ERC20 {
 
 
 
-contract StableBank is ERC20, ERC20Burnable, Ownable {
+contract StableBankToken is ERC20, ERC20Burnable, Ownable {
     constructor() ERC20("StableBank", "SBK") {
         _mint(address(this), 1000 * 10 ** decimals());
     }
