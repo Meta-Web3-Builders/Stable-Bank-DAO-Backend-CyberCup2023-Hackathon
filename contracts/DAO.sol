@@ -303,7 +303,87 @@ contract DAO{
         }
     }
 
-   
+    function approveProposal(uint256 _proposalID) external{
+
+        if (msg.sender != Admin) {
+            revert NotAdmin("Not Admin");
+        }
+
+        if (_proposals[_proposalID].cancelled == true) {
+            revert proposalAlreadyCancelled();
+        }
+        if (_proposals[_proposalID].votes > 0) {
+            revert votingAlreadyStarted("Active proposal");
+        }
+        if(DAOMemberCount < 4){
+            revert n0tEnoughDaoMembers("Not enough Dao members");
+        }
+
+        _proposals[_proposalID].approved = true;
+        _proposals[_proposalID].approvedTime = block.timestamp;
+
+        emit ProposalApproved(_proposalID, _proposals[_proposalID].approvedTime );
+
+    }
+
+    /// @dev function to vote project proposal given the proposal ID
+    function voteProposal(uint prosalID) external {
+         DAOMemberInfo memory DMI = member[msg.sender];
+          if(DMI.approved == false){
+            revert NotEligible("Not Dao member");
+          }
+          
+          if(voted[msg.sender][prosalID] == true){
+            revert AlreadyVoted("Already Voted");
+          }
+         
+         Proposals storage Pis = _proposals[prosalID];
+
+        if (IStableBank(daotoken).balanceOf(msg.sender) < 1e18) {
+            revert insufficientToken();
+        }
+
+        if(DAOMemberCount < 4){
+            revert n0tEnoughDaoMembers("Not enough Dao Member");
+        }
+
+        if(Pis.approved != true){
+            revert  ProposalNotApproved("Noty yet approved proposal ");
+        }
+
+        if(Pis.created == true){
+            revert crowdFundCreated("Quorum reached, Thank you");
+        }
+
+        address beneficiary = _proposals[prosalID].proposalInitiator;
+        uint _deadline = _proposals[prosalID].deadline;
+        uint amountProposed  = _proposals[prosalID].amountProposed;
+        string memory name = _proposals[prosalID].topic;
+        bytes  memory description = _proposals[prosalID].description;
+        CrowdFund.Category cat = _proposals[prosalID].category;
+         
+        Pis.votes =  Pis.votes + 1;
+
+        if (Pis.votes >= (DAOMemberCount - ((DAOMemberCount * 30)/ 100))) {
+        Pis.created = true;
+        Pis.deadline = _deadline + block.timestamp;
+    
+         deployCrowdFund(crowdFundFactoryAddr, USDC, beneficiary , prosalID, _deadline, stabeleBankNFT, amountProposed, name, description, cat);
+         ( address _USDC, address manager, address crowdFundAddr, address owner) = returnClonedAddress(crowdFundFactoryAddr, prosalID);
+
+         emit newCrowdfundDetails(_USDC, manager, crowdFundAddr, owner);
+        }
+
+        IStableBank(daotoken).burnFrom(msg.sender, 1e18);
+
+        voted[msg.sender][prosalID] = true;
+        Pis.voters.push(msg.sender);
+     
+        Pis.totalVoteCount = Pis.totalVoteCount + 1;
+
+        emit ProposalVoted(msg.sender, prosalID, 1);
+         
+    }
      
      /// @notice function to deposit ether into the DAO
     function depositIntoDAO () public payable{
