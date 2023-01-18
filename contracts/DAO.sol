@@ -151,7 +151,7 @@ contract DAO{
         
         
         //require(msg.value == tokenAmount, "No sufficient funds");
-        IUSDC(DUSDC).transferFrom(msg.sender, address(this), tokenAmount * 1e18);
+        IDUSDC(DUSDC).transferFrom(msg.sender, address(this), tokenAmount * 1e18);
         IStableBank(daotoken).transferFrom(address(this), msg.sender, tokenAmount * 1e18);
     }
 
@@ -166,7 +166,7 @@ contract DAO{
         }
         clickJoin[msg.sender] = true;
 
-        IUSDC(DUSDC).transferFrom(msg.sender, address(this), 10 * 1e18);
+        IDUSDC(DUSDC).transferFrom(msg.sender, address(this), 10 * 1e18);
         IStableBank(daotoken).mint(msg.sender, 10 * 1e18);
 
         DMI.name = _name;
@@ -238,7 +238,7 @@ contract DAO{
         clickJoin[_memberAddress] = false;
         rejectedMember.push(_memberAddress);
 
-        IUSDC(DUSDC).transfer(_memberAddress, 10 * 1e18);
+        IDUSDC(DUSDC).transfer(_memberAddress, 10 * 1e18);
         IStableBank(daotoken).burnFrom(_memberAddress, 10 * 1e18);
     }
 
@@ -398,9 +398,9 @@ contract DAO{
         if (msg.sender != Admin) {
             revert NotAdmin("only admin required");
         }
-        uint amount = IUSDC(tokenAddress).balanceOf(address(this));
+        uint amount = IDUSDC(tokenAddress).balanceOf(address(this));
 
-        IUSDC(tokenAddress).transfer(msg.sender, amount);
+        IDUSDC(tokenAddress).transfer(msg.sender, amount);
     }
     
     /// @dev function to get the vote count of a particular proposal
@@ -457,7 +457,7 @@ contract DAO{
     }
 
     function usdcBalance() external view returns (uint256){
-        return IUSDC(DUSDC).balanceOf(address(this));
+        return IDUSDC(DUSDC).balanceOf(address(this));
     }
 
 
