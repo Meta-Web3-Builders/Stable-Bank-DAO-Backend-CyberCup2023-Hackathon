@@ -12,7 +12,7 @@ contract DAO{
    address daotoken;
    address crowdFundFactoryAddr;
    uint256 public DAOMemberCount;
-   address stabeleBankNFT;
+   address StableBankDaoNFT;
    uint256 proposalID = 1;
    uint256 public proposalCount;
    uint64 memberID = 1;
@@ -77,7 +77,7 @@ contract DAO{
         Admin = msg.sender;
         USDC = _USDC;
         crowdFundFactoryAddr = _crowdFundFactoryaddr;
-        stabeleBankNFT = _nft;
+        StableBankDaoNFT = _nft;
         //crowdFundFactory(crowdFundFactoryAddr).createDaoToken(1);
     }
 
@@ -368,7 +368,7 @@ contract DAO{
         Pis.created = true;
         Pis.deadline = _deadline + block.timestamp;
     
-         deployCrowdFund(crowdFundFactoryAddr, USDC, beneficiary , prosalID, _deadline, stabeleBankNFT, amountProposed, name, description, cat);
+         deployCrowdFund(crowdFundFactoryAddr, USDC, beneficiary , prosalID, _deadline, StableBankDaoNFT, amountProposed, name, description, cat);
          ( address _USDC, address manager, address crowdFundAddr, address owner) = returnClonedAddress(crowdFundFactoryAddr, prosalID);
 
          emit newCrowdfundDetails(_USDC, manager, crowdFundAddr, owner);
