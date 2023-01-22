@@ -15,12 +15,6 @@ contract DAO{
    uint256 DAOMemberCount;
    address stabeleBankNFT;
 
-//    enum ProposalStatus{
-//     pending,
-//     approved,
-//     unapproved
-//    }
-
 
    struct DAOMemberInfo{
     string name;

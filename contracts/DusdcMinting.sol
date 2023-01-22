@@ -25,40 +25,40 @@ contract DusdcMinting{
     }
 
     /***********Event**************/
-    event mintedSuccefully(address indexed minter, uint indexed amount, uint timeOfminting);
-    event changedAddress(address indexed _newTokenAddress);
+    event MintedSuccessfully(address indexed minter, uint indexed amount, uint timeOfminting);
+    event ChangedAddress(address indexed _newTokenAddress);
 
 
     /**********Error*********/
-    error minted(string);
-    error insufficient(string);
+    error Minted(string);
+    error Insufficient(string);
 
     mapping(address => bool) mint;
 
     /// @dev function for user to mint token
     function mintToken() public {
         if(mint[msg.sender] == true){
-            revert minted("Already Minted");
+            revert Minted("Already Minted");
         }
         if(IERC20(DusdcAddress).balanceOf(address(this)) < amount){
-            revert insufficient("insufficient contract balance");
+            revert Insufficient("insufficient contract balance");
         }
         
         mint[msg.sender] = true;
         IERC20(DusdcAddress).transfer(msg.sender, amount);
 
-        emit mintedSuccefully(msg.sender, 15 * 1e18, block.timestamp);
+        emit MintedSuccessfully(msg.sender, 15 * 1e18, block.timestamp);
     }
 
     /// @dev function to return the token balance of the contract
-    function bal() public view onlyOwner returns(uint){
+    function getTokenBal() public view onlyOwner returns(uint){
         return IERC20(DusdcAddress).balanceOf(address(this));
     }
 
     /// @dev function to change the tokenaddress 
     function changeTokenAddress(address _newTokenAddress) public onlyOwner {
         DusdcAddress = _newTokenAddress;
-        emit changedAddress(_newTokenAddress);
+        emit ChangedAddress(_newTokenAddress);
     }
 
     /// @dev increase the amount a user is allowed to mint
@@ -70,6 +70,5 @@ contract DusdcMinting{
     function decreaseAmount(uint _amount) external onlyOwner{
         amount -= _amount;
     }
-
 
 }
